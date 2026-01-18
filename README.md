@@ -5,7 +5,7 @@ their YAML frontmatter properties. Inspired by Obsidian's Dataview plugin, but
 neovim-native, lightweight, and faster. Using telescope and envisioned to be
 used with [Telekasten](https://github.com/nvim-telekasten/telekasten.nvim)
 
-![MdViews RezCal example](./mdviews_demo_picker_20160117.png)
+![MdViews RezCal example](./mdviews_demo_picker_20160118.png)
 
 This is my first Neovim (and Lua!) plugin, so please be gentle.
 
@@ -83,15 +83,22 @@ require("mdviews").setup({
 
 Each view can have the following options:
 
-| Option        | Type     | Description                                        |
-|---------------|----------|----------------------------------------------------|
-| `from`        | string   | Directory to scan (relative to `home` or absolute) |
-| `fields`      | string[] | Fields to display in results                       |
-| `where`       | table    | Filter conditions                                  |
-| `sort`        | table    | Sort configuration `{ field, order }`              |
-| `limit`       | number   | Maximum results to return                          |
-| `description` | string   | Description shown in view picker                   |
-| `display`     | string   | Override default display mode                      |
+| Option           | Type     | Description                                            |
+|------------------|----------|--------------------------------------------------------|
+| `from`           | string   | Directory to scan (relative to `home` or absolute)     |
+| `fields`         | string[] | Fields to select from frontmatter (used for filtering) |
+| `display_fields` | string[] | Fields to display (defaults to `fields` if omitted)    |
+| `where`          | table    | Filter conditions                                      |
+| `sort`           | table    | Sort configuration `{ field, order }`                  |
+| `limit`          | number   | Maximum results to return                              |
+| `numbered`       | boolean  | Show row numbers (default: false)                      |
+| `show_headers`   | boolean  | Show column headers at top (default: false)            |
+| `description`    | string   | Description shown in view picker                       |
+| `display`        | string   | Override default display mode                          |
+
+**Note:** Use `display_fields` to hide columns you only need for filtering. For example,
+if you filter by `type = "project"`, you don't need to display the `type` column since
+all results will have the same value.
 
 ### Filter Conditions
 
@@ -142,18 +149,26 @@ Available operators:
 
 ## Keybindings
 
-In the results view:
+In the Telescope picker:
 
 | Key | Action |
 |-----|--------|
 | `<CR>` | Open selected file |
-| `q` / `<Esc>` | Close view (float mode) |
+| `y` | Yank results as markdown table to clipboard |
+| `Y` | Yank results as markdown table (reversed order) |
+
+In the floating window:
+
+| Key | Action |
+|-----|--------|
+| `<CR>` | Open selected file |
+| `q` / `<Esc>` | Close view |
 
 ## Example: Rez (Media Tracking)
 
 Perfect for tracking books, movies, and other media with frontmatter like:
 
-```yaml
+```md
 ---
 type: book
 rating: ⭐️⭐️⭐️⭐️
@@ -161,31 +176,40 @@ start: 2024-11-03
 end: 2024-11-17
 killed: false
 creator: Michael Pollan
----
+--- 
+
+# The Omnivore's Dilemma 
 ```
 
 Configure views:
 
 ```lua
 views = {
-  rez_current = {
-    description = "Current & recent",
+  rez_books = {
+    description = "Resonance Cal Books",
     from = "Refs/rez",
-    fields = { "title", "type", "rating", "start", "end" },
-    where = { killed = false },
-    sort = { field = "start", order = "desc" },
+    fields = { "title", "type", "rating", "start", "end", "creator" },
+    display_fields = { "title", "rating", "start", "end", "creator" },  -- Hide 'type'
+    where = {
+      type = function(v)
+        return v == "book" or v == "audiobook"
+      end,
+    },
+    sort = { field = "start", order = "asc" },
+    numbered = true,
+    show_headers = true,
   },
 
-  rez_active = {
-    description = "In progress",
-    from = "Refs/rez",
-    fields = { "title", "type", "start" },
+  projects = {
+    description = "Active Projects",
+    from = "Projects",
+    fields = { "title", "type", "start", "end" },
+    display_fields = { "title", "start", "end" },  -- Hide 'type' column
     where = {
-      start = mdviews.exists,
-      ["end"] = mdviews.not_exists,
-      killed = false,
+      type = "project",
     },
-    sort = { field = "start", order = "desc" },
+    sort = { field = "start", order = "asc" },
+    show_headers = true,
   },
 }
 ```
