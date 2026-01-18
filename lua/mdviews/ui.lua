@@ -203,6 +203,7 @@ function M.show_telescope(results, fields, opts)
   local actions = require("telescope.actions")
   local action_state = require("telescope.actions.state")
   local entry_display = require("telescope.pickers.entry_display")
+  local previewers = require("telescope.previewers")
 
   opts = opts or {}
   local title = opts.title or "MdViews"
@@ -233,10 +234,23 @@ function M.show_telescope(results, fields, opts)
     items = displayer_items,
   })
 
+  local show_headers = opts.show_headers or false
+
   local make_display = function(entry)
     local display_items = {}
+    -- Header row (row_num = 0)
+    if entry.is_header then
+      if numbered then
+        table.insert(display_items, { "#", "TelescopeResultsTitle" })
+      end
+      for _, field in ipairs(fields) do
+        table.insert(display_items, { field, "TelescopeResultsTitle" })
+      end
+      return displayer(display_items)
+    end
+    -- Regular data row
     if numbered then
-      table.insert(display_items, tostring(entry.index))
+      table.insert(display_items, tostring(entry.row_num))
     end
     for _, field in ipairs(fields) do
       table.insert(display_items, format_value(entry.value[field]))
@@ -244,10 +258,16 @@ function M.show_telescope(results, fields, opts)
     return displayer(display_items)
   end
 
-  -- Add index to results for numbering
+  -- Add row_num to results for numbering (using row_num to avoid telescope's internal index)
   local indexed_results = {}
-  for i, result in ipairs(results) do
-    table.insert(indexed_results, { index = i, result = result })
+  -- Add header row if enabled
+  if show_headers then
+    table.insert(indexed_results, { row_num = 0, result = {}, is_header = true })
+  end
+  local data_row = 1
+  for _, result in ipairs(results) do
+    table.insert(indexed_results, { row_num = data_row, result = result })
+    data_row = data_row + 1
   end
 
   -- Generate reversed markdown table for yanking
@@ -274,26 +294,57 @@ function M.show_telescope(results, fields, opts)
 
   telescope.new(opts, {
     prompt_title = title .. " (y=yank, Y=yank reversed)",
+    sorting_strategy = "ascending", -- Show results top-to-bottom (header first)
     finder = finders.new_table({
       results = indexed_results,
       entry_maker = function(item)
+        -- Header row (no path - previewer handles this)
+        if item.is_header then
+          return {
+            value = {},
+            row_num = 0,
+            is_header = true,
+            display = make_display,
+            ordinal = "000000 _header", -- Sort to top (space before underscore)
+          }
+        end
+        -- Regular data row
         local result = item.result
         local title_val = result._file and result._file.title or result.title or "Unknown"
         return {
           value = result,
-          index = item.index,
+          row_num = item.row_num,
           display = make_display,
-          ordinal = title_val,
+          -- Numeric prefix preserves sort order while allowing title search
+          ordinal = string.format("%06d %s", item.row_num, title_val),
           path = result._file and result._file.path,
         }
       end,
     }),
     sorter = conf.generic_sorter(opts),
-    previewer = conf.file_previewer(opts),
+    previewer = previewers.new_buffer_previewer({
+      title = "Preview",
+      define_preview = function(self, entry, status)
+        -- Skip entries without valid paths (e.g., header row)
+        if not entry.path or type(entry.path) ~= "string" then
+          vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, { "" })
+          return
+        end
+        -- Use the default file previewer logic
+        conf.buffer_previewer_maker(entry.path, self.state.bufnr, {
+          bufname = self.state.bufname,
+          winid = self.state.winid,
+        })
+      end,
+    }),
     attach_mappings = function(prompt_bufnr, map)
       actions.select_default:replace(function()
-        actions.close(prompt_bufnr)
         local selection = action_state.get_selected_entry()
+        -- Skip header row
+        if selection and selection.is_header then
+          return
+        end
+        actions.close(prompt_bufnr)
         if selection and selection.path then
           vim.cmd("edit " .. vim.fn.fnameescape(selection.path))
         end

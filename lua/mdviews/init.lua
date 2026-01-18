@@ -107,15 +107,22 @@ function M.run_query(opts)
   -- Display
   local display_mode = opts.display or M.config.display
   local fields = opts.fields or { "title", "type", "rating", "start", "end" }
+  -- display_fields allows showing only a subset of fields (hide query-only fields)
+  local display_fields = opts.display_fields or fields
   local title = opts.title or "MdViews"
   local numbered = opts.numbered or false
+  local show_headers = opts.show_headers or false
 
-  local ui_opts = { title = title, numbered = numbered }
+  local ui_opts = {
+    title = title,
+    numbered = numbered,
+    show_headers = show_headers,
+  }
 
   if display_mode == "float" then
-    ui.show_float(results, fields, ui_opts)
+    ui.show_float(results, display_fields, ui_opts)
   else
-    ui.show_telescope(results, fields, ui_opts)
+    ui.show_telescope(results, display_fields, ui_opts)
   end
 end
 
