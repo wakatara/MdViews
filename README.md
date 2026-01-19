@@ -134,6 +134,7 @@ Available operators:
 | `mdviews.lt(value)` | Less than |
 | `mdviews.lte(value)` | Less than or equal |
 | `mdviews.contains(value)` | String contains / array includes |
+| `mdviews.not_contains(value)` | String does not contain / array excludes |
 | `mdviews.is_in(values)` | Value is in array |
 | `mdviews.exists` | Field exists and is not nil |
 | `mdviews.not_exists` | Field is nil or missing |
