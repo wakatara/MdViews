@@ -397,22 +397,29 @@ function M.show_view_picker(views, run_view)
   end
 
   table.sort(view_list, function(a, b)
-    return a.name < b.name
+    -- Sort by description (title) first, then by name
+    local a_title = a.description ~= "" and a.description or a.name
+    local b_title = b.description ~= "" and b.description or b.name
+    return a_title < b_title
   end)
 
   telescope.new({}, {
     prompt_title = "MdViews",
+    sorting_strategy = "ascending", -- Show results at top of window
     finder = finders.new_table({
       results = view_list,
       entry_maker = function(entry)
-        local display = entry.name
+        local display
         if entry.description ~= "" then
-          display = display .. " - " .. entry.description
+          display = entry.description .. " :: " .. entry.name
+        else
+          display = entry.name
         end
         return {
           value = entry,
           display = display,
-          ordinal = entry.name,
+          -- Allow searching by both description and name
+          ordinal = (entry.description or "") .. " " .. entry.name,
         }
       end,
     }),
