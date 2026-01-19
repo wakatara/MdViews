@@ -105,6 +105,21 @@ local function matches_condition(record, field, condition)
         end
       end
       return false
+    elseif op == "not_contains" then
+      if value == nil then
+        return true -- nil doesn't contain anything
+      end
+      if type(value) == "string" then
+        return value:lower():find(target:lower(), 1, true) == nil
+      elseif type(value) == "table" then
+        for _, v in ipairs(value) do
+          if v == target then
+            return false
+          end
+        end
+        return true
+      end
+      return true
     elseif op == "in" then
       if type(target) == "table" then
         for _, t in ipairs(target) do
@@ -283,6 +298,9 @@ M.lte = function(value)
 end
 M.contains = function(value)
   return { op = "contains", value = value }
+end
+M.not_contains = function(value)
+  return { op = "not_contains", value = value }
 end
 M.is_in = function(values)
   return { op = "in", value = values }

@@ -176,6 +176,7 @@ M.gte = query.gte
 M.lt = query.lt
 M.lte = query.lte
 M.contains = query.contains
+M.not_contains = query.not_contains
 M.is_in = query.is_in
 M.exists = query.exists
 M.not_exists = query.not_exists
