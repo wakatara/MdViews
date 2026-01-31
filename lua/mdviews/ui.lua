@@ -190,7 +190,7 @@ end
 --- Show results in Telescope picker
 ---@param results table[] query results
 ---@param fields string[] fields to display
----@param opts table|nil options { title, numbered }
+---@param opts table|nil options { title, numbered, format_entry }
 function M.show_telescope(results, fields, opts)
   local ok, telescope = pcall(require, "telescope.pickers")
   if not ok then
@@ -208,12 +208,76 @@ function M.show_telescope(results, fields, opts)
   opts = opts or {}
   local title = opts.title or "MdViews"
   local numbered = opts.numbered or false
+  local format_entry = opts.format_entry
 
   if #results == 0 then
     vim.notify("No results found", vim.log.levels.INFO)
     return
   end
 
+  -- Custom format_entry mode: simple string display
+  if format_entry then
+    local make_display_custom = function(entry)
+      if entry.is_header then
+        return entry.header_text or ""
+      end
+      return format_entry(entry.value, entry.row_num)
+    end
+
+    local indexed_results = {}
+    local data_row = 1
+    for _, result in ipairs(results) do
+      table.insert(indexed_results, { row_num = data_row, result = result })
+      data_row = data_row + 1
+    end
+
+    telescope.new(opts, {
+      prompt_title = title,
+      sorting_strategy = "ascending",
+      finder = finders.new_table({
+        results = indexed_results,
+        entry_maker = function(item)
+          local result = item.result
+          local display_text = format_entry(result, item.row_num)
+          local title_val = result._file and result._file.title or result.title or "Unknown"
+          return {
+            value = result,
+            row_num = item.row_num,
+            display = display_text,
+            ordinal = string.format("%06d %s", item.row_num, title_val),
+            path = result._file and result._file.path,
+          }
+        end,
+      }),
+      sorter = conf.generic_sorter(opts),
+      previewer = previewers.new_buffer_previewer({
+        title = "Preview",
+        define_preview = function(self, entry, status)
+          if not entry.path or type(entry.path) ~= "string" then
+            vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, { "" })
+            return
+          end
+          conf.buffer_previewer_maker(entry.path, self.state.bufnr, {
+            bufname = self.state.bufname,
+            winid = self.state.winid,
+          })
+        end,
+      }),
+      attach_mappings = function(prompt_bufnr, map)
+        actions.select_default:replace(function()
+          local selection = action_state.get_selected_entry()
+          actions.close(prompt_bufnr)
+          if selection and selection.path then
+            vim.cmd("edit " .. vim.fn.fnameescape(selection.path))
+          end
+        end)
+        return true
+      end,
+    }):find()
+    return
+  end
+
+  -- Standard column-based display
   -- Calculate column widths
   local widths = calculate_widths(results, fields)
 

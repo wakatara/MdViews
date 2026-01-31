@@ -112,11 +112,13 @@ function M.run_query(opts)
   local title = opts.title or "MdViews"
   local numbered = opts.numbered or false
   local show_headers = opts.show_headers or false
+  local format_entry = opts.format_entry or nil
 
   local ui_opts = {
     title = title,
     numbered = numbered,
     show_headers = show_headers,
+    format_entry = format_entry,
   }
 
   if display_mode == "float" then
